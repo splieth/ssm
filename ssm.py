@@ -45,7 +45,7 @@ def instance_login(_args):
     for reservation in instances['Reservations']:
         for instance in reservation['Instances']:
             for tag in instance['Tags']:
-                if tag['Key'] == 'service':
+                if tag['Key'] == 'Name':
                     if tag['Value'] not in services:
                         services.append(tag['Value'])
 
@@ -55,7 +55,7 @@ def instance_login(_args):
         for reservation in instances['Reservations']:
             for instance in reservation['Instances']:
                 for tag in instance['Tags']:
-                    if tag['Key'] == 'service':
+                    if tag['Key'] == 'Name':
                         if one_service == tag['Value']:
                             function_item = FunctionItem(
                                 instance['InstanceId'] + ' - ' + tag['Value'],
