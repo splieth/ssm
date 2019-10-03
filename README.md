@@ -7,9 +7,7 @@
 * [session-manager-plugin](https://docs.aws.amazon.com/systems-manager/latest/userguide/session-manager-working-with-install-plugin.html)
 
 ## Usage
-Make sure this repo is within your PATH before doing anything else.
-
-After that, just run
+Run
 
 ```bash
 pipenv install
