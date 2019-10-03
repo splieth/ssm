@@ -8,7 +8,7 @@ import sys
 from cursesmenu import *
 from cursesmenu.items import *
 import time
-import os
+import pty
 
 SSM_CLIENT = boto3.client('ssm')
 EC2_CLIENT = boto3.client('ec2')
