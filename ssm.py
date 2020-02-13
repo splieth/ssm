@@ -44,24 +44,19 @@ def instance_login(_args):
     services = []
     for reservation in instances['Reservations']:
         for instance in reservation['Instances']:
-            for tag in instance['Tags']:
-                if tag['Key'] == 'Name':
-                    if tag['Value'] not in services:
-                        services.append(tag['Value'])
+            services.append(instance['PrivateDnsName'])
 
     menu = CursesMenu("All instances", "Server")
 
     for one_service in services:
         for reservation in instances['Reservations']:
             for instance in reservation['Instances']:
-                for tag in instance['Tags']:
-                    if tag['Key'] == 'Name':
-                        if one_service == tag['Value']:
-                            function_item = FunctionItem(
-                                instance['InstanceId'] + ' - ' + tag['Value'],
-                                open_instance_connection, [instance['InstanceId']], should_exit=True
-                            )
-                            menu.append_item(function_item)
+                if one_service == instance['PrivateDnsName']:
+                    function_item = FunctionItem(
+                        instance['InstanceId'] + ' | ' + instance['PrivateDnsName'],
+                        open_instance_connection, [instance['InstanceId']], should_exit=True
+                    )
+                    menu.append_item(function_item)
     menu.show()
 
 
