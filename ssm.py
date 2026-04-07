@@ -1,75 +1,83 @@
 #!/usr/bin/env python
+"""CLI to open an SSH-like session to EC2 instances via AWS SSM."""
 
 import argparse
-from botocore.exceptions import ClientError
-import boto3
-from termcolor import cprint
-import sys
-from cursesmenu import *
-from cursesmenu.items import *
 import pty
+import sys
+from typing import Any
 
-EC2_CLIENT = boto3.client('ec2')
+import boto3
+from botocore.exceptions import ClientError, NoCredentialsError
+from cursesmenu import CursesMenu
+from cursesmenu.items import FunctionItem
 
 
-def get_instances():
-    instances = []
+def get_running_instances(ec2_client: Any) -> list[dict[str, Any]]:
+    """Return a list of running EC2 instances."""
     try:
-        instances = EC2_CLIENT.describe_instances(
-            Filters=[
-                {
-                    'Name': 'instance-state-name',
-                    'Values': [
-                        'running'
-                    ]
-                }
-            ]
+        response = ec2_client.describe_instances(
+            Filters=[{"Name": "instance-state-name", "Values": ["running"]}]
         )
+    except NoCredentialsError:
+        sys.exit("No AWS credentials found.")
     except ClientError as e:
-        if e.response['Error']['Code'] == 'AuthFailure':
-            print('Not authorized')
-            sys.exit(1)
-        else:
-            print(e.response['Error']['Code'])
+        code = e.response["Error"]["Code"]
+        if code == "AuthFailure":
+            sys.exit("Not authorized.")
+        sys.exit(f"AWS error: {code}")
 
-    return instances
+    return [
+        instance
+        for reservation in response["Reservations"]
+        for instance in reservation["Instances"]
+    ]
 
 
-def open_instance_connection(instance_id):
+def open_instance_connection(instance_id: str) -> None:
+    """Start an SSM session against the given instance."""
     pty.spawn(["aws", "ssm", "start-session", "--target", instance_id])
 
 
-def instance_login(_args):
-    instances = get_instances()
-    services = []
-    for reservation in instances['Reservations']:
-        for instance in reservation['Instances']:
-            services.append(instance['PrivateDnsName'])
+def instance_login(_args: argparse.Namespace) -> None:
+    ec2_client = boto3.client("ec2")
+    instances = get_running_instances(ec2_client)
+
+    if not instances:
+        print("No running instances found.")
+        return
 
     menu = CursesMenu("All instances", "Server")
-
-    for one_service in services:
-        for reservation in instances['Reservations']:
-            for instance in reservation['Instances']:
-                if one_service == instance['PrivateDnsName']:
-                    function_item = FunctionItem(
-                        instance['InstanceId'] + ' | ' + instance['PrivateDnsName'],
-                        open_instance_connection, [instance['InstanceId']], should_exit=True
-                    )
-                    menu.append_item(function_item)
+    for instance in instances:
+        label = f"{instance['InstanceId']} | {instance['PrivateDnsName']}"
+        menu.append_item(
+            FunctionItem(
+                label,
+                open_instance_connection,
+                [instance["InstanceId"]],
+                should_exit=True,
+            )
+        )
     menu.show()
 
 
-if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description='Open SSH connection to EC2 instances via SSM')
-    subparsers = parser.add_subparsers(help='<subcommand> help')
+def build_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(description="Open an SSH connection to EC2 instances via SSM.")
+    subparsers = parser.add_subparsers(dest="command")
 
-    parser_login_command = subparsers.add_parser('login', help='Login to certain instance')
-    parser_login_command.set_defaults(func=instance_login)
+    login_parser = subparsers.add_parser("login", help="Login to an instance.")
+    login_parser.set_defaults(func=instance_login)
 
+    return parser
+
+
+def main() -> None:
+    parser = build_parser()
     args = parser.parse_args()
-
-    try:
-        args.func(args)
-    except AttributeError:
+    if not hasattr(args, "func"):
         parser.print_help()
+        return
+    args.func(args)
+
+
+if __name__ == "__main__":
+    main()

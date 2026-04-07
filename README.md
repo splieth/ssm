@@ -36,6 +36,6 @@ Run linters, type checks and tests:
 ```bash
 uv run ruff check .
 uv run ruff format --check .
-uv run mypy ssm.py
+uv run mypy ssm.py tests
 uv run pytest
 ```
